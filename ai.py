@@ -49,6 +49,9 @@ ABORT = AbortSignal()
 def evaluate(
     node: Node, depth: int, alpha: float, beta: float, maximizing: bool
 ) -> float:
+    """
+        Apply the alphabeta pruning algorithm to the node
+    """
     if ABORT.is_signalled():
         return 0
 

@@ -9,7 +9,9 @@ NONE = 0
 WHITE = 1  # ⚪
 BLACK = 2  # ⚫
 
+# Swap the input team with the enemy
 SWAP_TEAM = [NONE, BLACK, WHITE]
+# Team -> Character
 TOKEN_MAP = {
     NONE: "◯",
     WHITE: "⬤",
@@ -17,6 +19,7 @@ TOKEN_MAP = {
     -1: f"{Colors.GREEN}◯{Colors.END}",
 }
 
+# General constants weights for tiles around the grid
 WEIGHT_GRID = [
     8,
     0,
@@ -100,12 +103,12 @@ DIRECTIONS = [
     (-1, 0),
     (1, 0),
     (0, -1),
-    (0, 1),  # up, down, left, right
+    (0, 1),  
     (-1, -1),
     (-1, 1),
     (1, -1),
     (1, 1),
-]  # diagonals
+]  
 
 
 class Grid:
@@ -118,6 +121,9 @@ class Grid:
             self._grid = STARTING_GRID.copy()
 
     def __str__(self) -> str:
+        """
+            Prettify the grid for printing
+        """
         output = ""
         output += "   (0)(1)(2)(3)(4)(5)(6)(7)"
         row_int = 7
@@ -137,15 +143,19 @@ class Grid:
         return output
 
     def __getitem__(self, move: Move):
+        # Return the disc at the given position
+
         if move[0] < 0 or move[0] > 7 or move[1] < 0 or move[1] > 7:
             return NONE
 
         return self._grid[(7 - move[0]) * 8 + move[1]]
 
     def __setitem__(self, move: Move, value: int):
+        # Set the disc at the given position
         self._grid[(7 - move[0]) * 8 + move[1]] = value
 
     def _scan_direction(self, team: int, x: int, y: int, ox: int, oy: int):
+        # Scan in the specified direction to see if its a valid move
         foundEnemy = False
         pos = (y + oy, x + ox)
 
@@ -164,6 +174,8 @@ class Grid:
         return False
 
     def _is_valid(self, team: int, x: int, y: int):
+        # Returns true if the move is valid
+
         for ox, oy in DIRECTIONS:
             if self._scan_direction(team, x, y, ox, oy):
                 return True
@@ -179,7 +191,11 @@ class Grid:
 
         valid_moves = set()
 
+
         def runner(i: int):
+            """
+                Check if the move is valid
+            """
             y = i // 8
             x = i % 8
 
@@ -199,6 +215,9 @@ class Grid:
         return valid_moves
 
     def _flip_pieces(self, team, x: int, y: int, ox: int, oy: int):
+        """
+            Flip all pieces in the given direction
+        """
         tokens = []
         pos = (y + oy, x + ox)
 
@@ -213,6 +232,9 @@ class Grid:
             pos = (pos[0] + oy, pos[1] + ox)
 
     def make_move(self, team: int, move: Move) -> "Grid":
+        """
+            Make the given move
+        """
         y, x = move
 
         for ox, oy in DIRECTIONS:
@@ -225,6 +247,9 @@ class Grid:
         return self
 
     def copy(self) -> "Grid":
+        """
+            Copy the grid to a new one
+        """
         new_grid = Grid(copy=False)
         new_grid._grid = self._grid.copy()
 
@@ -237,6 +262,9 @@ class Grid:
         return WEIGHT_GRID[y * 8 + x]
 
     def eval_corner(self, x: int, y: int, team: int) -> float:
+        """
+            Weight cells around the corners more/less depending on who owns the corner
+        """
         CORNER_POSITIVE = 6
         CORNER_NEGATIVE = -4
 
@@ -252,6 +280,9 @@ class Grid:
         return 0
 
     def _get_stable_discs(self):
+        """
+            Calculate which discs are stable
+        """
         stable_dir_count = [0 for _ in range(64)]
 
         for y in range(8):
@@ -297,7 +328,7 @@ class Grid:
             score = 0
             score += self.eval_position(x, y, team)
             score += self.eval_corner(x, y, team)
-            score *= stable_directions[i] / 8 + 1
+            score *= stable_directions[i] + 1
 
             if self[(y, x)] == WHITE:
                 white_scores.append(score)

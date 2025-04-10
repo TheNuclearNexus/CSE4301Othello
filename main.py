@@ -24,6 +24,7 @@ def do_player_move():
     global grid
     global ROUND
 
+    # Get all valid moves for the player
     valid_moves = grid.get_valid_moves(PLAYER_TEAM)
     if len(valid_moves) == 0:
         return
@@ -33,6 +34,7 @@ def do_player_move():
         action = input("Whats your move (i,j) or back: ")
 
         if action == "back":
+            # Roll back the grid to a previous move
             grid = MOVES.pop()
             print("--- New Grid ---")
             print(grid)
@@ -74,18 +76,22 @@ while True:
 
     possible_moves = grid.get_valid_moves(BOT_TEAM)
 
+    # Create empty nodes for each possible move
     move_nodes: list[Node] = [
         Node(grid.copy().make_move(BOT_TEAM, move), BOT_TEAM, [], move=move)
         for move in possible_moves
     ]
 
+    
     def runner(root: Node, ply: int):
+        """Evaluates a given node to a given ply"""
         evaluate(root, ply, -math.inf, math.inf, True)
 
     start_time = time.time()
 
     best_move: Node|None = None
 
+    # Use smaller plys early on in the game
     if ROUND <= 8:
         max_ply = 4
     elif ROUND <= 12:
@@ -94,10 +100,12 @@ while True:
         max_ply = 10
 
     for i in range(2, max_ply + 1):
+        # If we're past the maximum amount of time
+        # break out
         if time.time() - start_time > MAX_TIME:
             break
-        # print("ply =", i)
 
+        # Start the thread pool for each move
         t = Thread(target=lambda: MOVE_THREAD_POOL.map(partial(runner, ply=i), move_nodes))
         t.start()
 
@@ -105,6 +113,8 @@ while True:
             cur_time = time.time() - start_time
             print(f"ply = {i} | {cur_time:.3f}s", end="\r", flush=True)
             time.sleep(0.05)
+
+            # Time is up, abort and return
             if cur_time > MAX_TIME:
                 ABORT.signal()
 
