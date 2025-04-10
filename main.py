@@ -22,7 +22,12 @@ BOT_FIRST = BOT_TEAM == BLACK
 
 def do_player_move():
     global grid
+    global ROUND
+
     valid_moves = grid.get_valid_moves(PLAYER_TEAM)
+    if len(valid_moves) == 0:
+        return
+    
     print("Valid moves are", valid_moves)
     while True:
         action = input("Whats your move (i,j) or back: ")
@@ -31,6 +36,7 @@ def do_player_move():
             grid = MOVES.pop()
             print("--- New Grid ---")
             print(grid)
+            ROUND -= 1
             do_player_move()
             return
 
@@ -44,8 +50,9 @@ def do_player_move():
             print(f"\n{Colors.RED}Invalid move{Colors.END}\n")
 
     grid.get_valid_moves(BOT_TEAM)
-    print("--- Player Move ---")
+    print(f"--- Player Move #{ROUND} ---")
     print(grid)
+    print("Score:", grid.eval(PLAYER_TEAM))
 
 
 grid.get_valid_moves(BOT_TEAM if BOT_FIRST else PLAYER_TEAM)
@@ -57,7 +64,7 @@ PLY = 7
 
 MOVES = []
 
-THREAD_POOL = ThreadPool(8)
+MOVE_THREAD_POOL = ThreadPool(16)
 
 MAX_TIME = 120
 
@@ -68,7 +75,7 @@ while True:
     possible_moves = grid.get_valid_moves(BOT_TEAM)
 
     move_nodes: list[Node] = [
-        Node(grid.copy().make_move(BOT_TEAM, move), BOT_TEAM, [])
+        Node(grid.copy().make_move(BOT_TEAM, move), BOT_TEAM, [], move=move)
         for move in possible_moves
     ]
 
@@ -77,14 +84,21 @@ while True:
 
     start_time = time.time()
 
-    best_moves: list[Node] = []
+    best_move: Node|None = None
 
-    for i in range(2, 50):
+    if ROUND <= 8:
+        max_ply = 4
+    elif ROUND <= 12:
+        max_ply = 6
+    else:
+        max_ply = 10
+
+    for i in range(2, max_ply + 1):
         if time.time() - start_time > MAX_TIME:
             break
         # print("ply =", i)
 
-        t = Thread(target=lambda: THREAD_POOL.map(partial(runner, ply=i), move_nodes))
+        t = Thread(target=lambda: MOVE_THREAD_POOL.map(partial(runner, ply=i), move_nodes))
         t.start()
 
         while t.is_alive():
@@ -103,19 +117,18 @@ while True:
 
         new_node = Node(move_nodes[-1].grid.copy(), move_nodes[-1].acting_team, [])
         new_node.weight = move_nodes[-1].weight
+        new_node.move = move_nodes[-1].move
 
-        best_moves.append(new_node)
+        best_move = new_node
 
-    print("\n")
-    print(list(map(lambda m: m.weight, best_moves)))
-    best_moves = sorted(best_moves, key=lambda m: m.weight)
-
-    if len(best_moves) > 0:
-        grid = best_moves[-1].grid
+    if best_move:
+        grid = best_move.grid
         grid.get_valid_moves(PLAYER_TEAM)
 
-        print("--- Bot Move ---")
+        print(f"----- Bot Move #{ROUND} -----")
+        print(best_move.move)
         print(grid)
+        print("Score:", grid.eval(BOT_TEAM))
 
     if BOT_FIRST:
         do_player_move()

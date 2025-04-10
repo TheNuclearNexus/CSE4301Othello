@@ -1,3 +1,4 @@
+import math
 from multiprocessing.pool import ThreadPool
 from threading import Thread
 from typing import Literal, Union
@@ -308,8 +309,8 @@ class Grid:
         white_num = sum(white_scores)
         black_num = sum(black_scores)
 
-        possible_team_moves = len(self.get_valid_moves(team)) * 4
-        possible_opponent_moves = len(self.get_valid_moves(SWAP_TEAM[team])) * 4
+        possible_team_moves = math.sqrt(len(self.get_valid_moves(team))) * 2
+        possible_opponent_moves = math.sqrt(len(self.get_valid_moves(SWAP_TEAM[team]))) * 2
 
         if team == WHITE:
             score = white_num - black_num

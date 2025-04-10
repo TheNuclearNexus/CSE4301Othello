@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 import math
-from grid import BLACK, NONE, SWAP_TEAM, WHITE, Grid
+from grid import BLACK, NONE, SWAP_TEAM, WHITE, Grid, Move
 
 
 @dataclass
@@ -9,6 +9,7 @@ class Node:
     acting_team: int
     children: list["Node"]
     _initialized: bool = False
+    move: Move = field(default=(0,0))
 
     weight: float = field(init=False, default=0)
 
