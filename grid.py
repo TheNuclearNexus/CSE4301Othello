@@ -287,15 +287,16 @@ class Grid:
 
         for y in range(8):
             for x in range(8):
-                if self[(y, x)] not in ("B", "W"):
+                if self[(y, x)] == NONE:
                     continue
                 color = self[(y, x)]
+                
                 count = 0
                 for dx, dy in DIRECTIONS:
-                    cx, cy = y + dx, x + dy
+                    cx, cy = x + dx, y + dy
                     stable_in_dir = False
                     while cx >= 0 and cx < 8 and cy >= 0 and cy < 8:
-                        if self[(y, x)] != color:
+                        if self[(cy, cx)] != color:
                             break
                         cx += dx
                         cy += dy
@@ -305,6 +306,7 @@ class Grid:
 
                     if stable_in_dir:
                         count += 1
+
                 stable_dir_count[(7 - y) * 8 + x] = count
 
         return stable_dir_count
@@ -354,4 +356,24 @@ class Grid:
         return score
 
 
-print(Grid())
+if __name__ == "__main__":
+    grid = Grid()
+    grid._grid = [
+        1, 1, 1, 1, 1, 1, 1, 1,
+        1, 0, 0, 1, 0, 0, 0, 1,
+        1, 0, 0, 1, 0, 0, 0, 1,
+        1, 0, 0, 1, 0, 1, 0, 1,
+        1, 0, 0, 1, 0, 0, 0, 1,
+        1, 0, 0, 1, 0, 0, 0, 1,
+        1, 0, 0, 1, 0, 0, 0, 1,
+        1, 1, 1, 1, 1, 1, 1, 1,
+    ]
+    stable_discs = grid._get_stable_discs()
+
+    for y in range(8):
+        for x in range(8):
+            i = (7 - y) * 8 + x
+
+            print(f"{stable_discs[i]} ", end="")
+
+        print()
