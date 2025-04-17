@@ -92,10 +92,10 @@ while True:
     best_move: Node|None = None
 
     # Use smaller plys early on in the game
-    if ROUND <= 8:
-        max_ply = 4
-    elif ROUND <= 12:
+    if ROUND <= 7:
         max_ply = 6
+    elif ROUND <= 10:
+        max_ply = 8
     else:
         max_ply = 10
 

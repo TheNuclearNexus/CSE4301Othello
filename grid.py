@@ -1,8 +1,9 @@
+from functools import cache
 import math
 from multiprocessing.pool import ThreadPool
 from threading import Thread
 from typing import Literal, Union
-
+import numpy as np
 from colors import Colors
 
 NONE = 0
@@ -110,15 +111,26 @@ DIRECTIONS = [
     (1, 1),
 ]  
 
+INITAL_POSSIBLE_MOVES = set([
+    (4,2), (5,3), (5,4), (4,5), (3, 5), (2, 4), (2, 3), (3, 2)
+])
+
+INITAL_FLIPPED_TILES = set([
+    (3,3), (4,3), (4, 4), (3, 4)
+])
 
 class Grid:
-    _grid: list[int]
+    _grid: np.ndarray
     _valid_moves: set[Move] | None = None
     _team: int = NONE
+    _possible_moves: set[Move]
+    _flipped_tiles: set[Move]
 
     def __init__(self, copy=True):
         if copy:
-            self._grid = STARTING_GRID.copy()
+            self._grid = np.array(STARTING_GRID, dtype=np.dtypes.ByteDType)
+            self._possible_moves = INITAL_POSSIBLE_MOVES.copy()
+            self._flipped_tiles = INITAL_FLIPPED_TILES.copy()
 
     def __str__(self) -> str:
         """
@@ -192,12 +204,11 @@ class Grid:
         valid_moves = set()
 
 
-        def runner(i: int):
+        def runner(move: Move):
             """
                 Check if the move is valid
             """
-            y = i // 8
-            x = i % 8
+            y, x = move
 
             if self[(y, x)] != NONE:
                 return
@@ -207,7 +218,7 @@ class Grid:
 
             valid_moves.add((y, x))
 
-        THREAD_POOL.map(runner, INDICES)
+        THREAD_POOL.map(runner, self._possible_moves)
 
         self._valid_moves = valid_moves
         self._team = team
@@ -237,7 +248,13 @@ class Grid:
         """
         y, x = move
 
+        self._possible_moves.remove(move)
+        self._flipped_tiles.add(move)
+
         for ox, oy in DIRECTIONS:
+            if self[y + oy, x + ox] == NONE and ox + x >= 0 and ox + x < 8 and oy + y >= 0 and oy + y < 8:
+                self._possible_moves.add((y + oy, x + ox))
+
             self._flip_pieces(team, x, y, ox, oy)
 
         self[(y, x)] = team
@@ -252,10 +269,14 @@ class Grid:
         """
         new_grid = Grid(copy=False)
         new_grid._grid = self._grid.copy()
+        new_grid._possible_moves = self._possible_moves.copy()
+        new_grid._flipped_tiles = self._flipped_tiles.copy()
 
         return new_grid
 
-    def eval_position(self, x: int, y: int, team: int) -> float:
+    @cache
+    @staticmethod
+    def eval_position(x: int, y: int, team: int) -> float:
         """ ""
         give more weights to important points
         """
@@ -285,29 +306,29 @@ class Grid:
         """
         stable_dir_count = [0 for _ in range(64)]
 
-        for y in range(8):
-            for x in range(8):
-                if self[(y, x)] == NONE:
-                    continue
-                color = self[(y, x)]
-                
-                count = 0
-                for dx, dy in DIRECTIONS:
-                    cx, cy = x + dx, y + dy
-                    stable_in_dir = False
-                    while cx >= 0 and cx < 8 and cy >= 0 and cy < 8:
-                        if self[(cy, cx)] != color:
-                            break
-                        cx += dx
-                        cy += dy
-                    else:
-                        # Reached edge without interruption — stable in this direction
-                        stable_in_dir = True
+        for y,x in self._flipped_tiles:     
 
-                    if stable_in_dir:
-                        count += 1
+            if self[(y, x)] == NONE:
+                continue
+            color = self[(y, x)]
+            
+            count = 0
+            for dx, dy in DIRECTIONS:
+                cx, cy = x + dx, y + dy
+                stable_in_dir = False
+                while cx >= 0 and cx < 8 and cy >= 0 and cy < 8:
+                    if self[(cy, cx)] != color:
+                        break
+                    cx += dx
+                    cy += dy
+                else:
+                    # Reached edge without interruption — stable in this direction
+                    stable_in_dir = True
 
-                stable_dir_count[(7 - y) * 8 + x] = count
+                if stable_in_dir:
+                    count += 1
+
+            stable_dir_count[(7 - y) * 8 + x] = count
 
         return stable_dir_count
 
@@ -320,15 +341,15 @@ class Grid:
 
         stable_directions = self._get_stable_discs()
 
-        def runner(i: int):
-            y = i // 8
-            x = i % 8
+        def runner(m: Move):
+            y, x = m
+            i = (7 - y) * 8 + x
 
             if self[(y, x)] == NONE:
                 return
 
             score = 0
-            score += self.eval_position(x, y, team)
+            score += Grid.eval_position(x, y, team)
             score += self.eval_corner(x, y, team)
             score *= stable_directions[i] + 1
 
@@ -337,7 +358,7 @@ class Grid:
             else:
                 black_scores.append(score)
 
-        THREAD_POOL.map(runner, INDICES)
+        THREAD_POOL.map(runner, self._flipped_tiles)
 
         white_num = sum(white_scores)
         black_num = sum(black_scores)
@@ -358,7 +379,7 @@ class Grid:
 
 if __name__ == "__main__":
     grid = Grid()
-    grid._grid = [
+    grid._grid = np.array([
         1, 1, 1, 1, 1, 1, 1, 1,
         1, 0, 0, 1, 0, 0, 0, 1,
         1, 0, 0, 1, 0, 0, 0, 1,
@@ -367,7 +388,7 @@ if __name__ == "__main__":
         1, 0, 0, 1, 0, 0, 0, 1,
         1, 0, 0, 1, 0, 0, 0, 1,
         1, 1, 1, 1, 1, 1, 1, 1,
-    ]
+    ])
     stable_discs = grid._get_stable_discs()
 
     for y in range(8):

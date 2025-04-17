@@ -9,7 +9,7 @@ class Node:
     acting_team: int
     children: list["Node"]
     _initialized: bool = False
-    move: Move = field(default=(0,0))
+    move: Move = field(default=(0, 0))
 
     weight: float = field(init=False, default=0)
 
@@ -20,21 +20,28 @@ class Node:
     def set_children(self):
         if self._initialized:
             return
-        
+
         self._initialized = True
         for move in self.grid.get_valid_moves(self.acting_team):
-            self.children.append(
-                Node(
-                    self.grid.copy().make_move(self.acting_team, move),
-                    SWAP_TEAM[self.acting_team],
-                    [],
-                )
+            node = Node(
+                self.grid.copy().make_move(self.acting_team, move),
+                SWAP_TEAM[self.acting_team],
+                [],
             )
+
+            node.eval()
+
+            self.children.append(node)
+        
+        self.children = sorted(self.children, key=lambda n: -n.weight)
+
 
 class AbortSignal:
     _flag: bool = False
 
-    def signal(self,):
+    def signal(
+        self,
+    ):
         self._flag = True
 
     def reset(self):
@@ -46,11 +53,12 @@ class AbortSignal:
 
 ABORT = AbortSignal()
 
+
 def evaluate(
     node: Node, depth: int, alpha: float, beta: float, maximizing: bool
 ) -> float:
     """
-        Apply the alphabeta pruning algorithm to the node
+    Apply the alphabeta pruning algorithm to the node
     """
     if ABORT.is_signalled():
         return 0
@@ -62,7 +70,6 @@ def evaluate(
 
     if len(node.children) == 0:
         return node.eval()
-    
 
     if maximizing:
         value = -math.inf
